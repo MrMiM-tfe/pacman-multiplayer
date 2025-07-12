@@ -1,5 +1,3 @@
-# dev_server.py
-
 import sys
 import subprocess
 from watchdog.observers import Observer
