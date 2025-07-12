@@ -1,0 +1,21 @@
+from server.libs.base_gateway import BaseGateway
+from server.libs.decorators import on
+from server.game.room import Room
+from server.libs.response import Response
+
+class GameGateway(BaseGateway):
+	@on("create_game")
+	def handle_create_game(self, sid: str, game_id: str):
+		user = self.get_user(sid)
+		room = Room(game_id=game_id, user1=user)
+
+
+	@on("join_game")
+	def handle_join_game(self, sid: str, game_id: str):
+		user = self.get_user(sid)
+		room = Room.rooms.get(game_id)
+		if room:
+			room.user2 = user
+			return Response.success(room)
+		else:
+			return Response.error("Room not found")
