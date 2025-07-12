@@ -1,4 +1,4 @@
-from server.models.user import User
+from models.user import User
 
 class BaseGateway:
     def __init__(self, sio, connected_clients: dict[str, User]):

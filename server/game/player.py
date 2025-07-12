@@ -1,4 +1,4 @@
-from server.models import User
+from models import User
 
 class Player(User):
 	def __init__(self, user: User, position):

@@ -1,5 +1,5 @@
 from pydantic import ValidationError
-from server.libs.response import Response
+from libs.response import Response
 
 _gateway_registry = []
 

@@ -1,9 +1,9 @@
-from server.libs.base_gateway import BaseGateway
-from server.libs.decorators import on, register_gateway, validate
-from server.db.database import SessionLocal
-from server.models import User
-from server.libs.response import Response
-from server.validations.auth import AuthRequest
+from libs.base_gateway import BaseGateway
+from libs.decorators import on, register_gateway, validate
+from db.database import SessionLocal
+from models import User
+from libs.response import Response
+from validations.auth import AuthRequest
 import bcrypt
 import jwt
 import os

@@ -1,7 +1,7 @@
-from server.libs.base_gateway import BaseGateway
-from server.libs.decorators import on
-from server.game.room import Room
-from server.libs.response import Response
+from libs.base_gateway import BaseGateway
+from libs.decorators import on
+from game.room import Room
+from libs.response import Response
 
 class GameGateway(BaseGateway):
 	@on("create_game")

@@ -1,6 +1,6 @@
 from game.map import MAP_LAYOUT, PLAYER_1_POSITION, PLAYER_2_POSITION
 from game.player import Player
-from server.models import User
+from models import User
 
 class Game:
 	def __init__(self, game_id, user1: User, user2: User):
@@ -16,5 +16,4 @@ class Game:
 			"p2": self.player2.position,
 			"map": self.map
 		}
-	
 	

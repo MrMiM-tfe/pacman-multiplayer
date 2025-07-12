@@ -1,6 +1,6 @@
 import inspect
-from server.libs.decorators import get_registered_gateways
-from server.models import User
+from libs.decorators import get_registered_gateways
+from models import User
 
 class ConnectionHandler:
     connected_clients: dict[str, User] = {}
