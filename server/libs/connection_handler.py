@@ -8,6 +8,7 @@ class ConnectionHandler:
     def __init__(self, sio):
         self.sio = sio
         self.gateways = [gateway_cls(sio, self.connected_clients) for gateway_cls in get_registered_gateways()]
+        print(f"Registered gateways: {len(self.gateways)}")
         self.register_handlers()
 
     def register_handlers(self):

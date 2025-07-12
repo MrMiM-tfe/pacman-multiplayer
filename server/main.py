@@ -4,6 +4,9 @@ import socketio
 import eventlet
 from libs.connection_handler import ConnectionHandler
 
+from gateways.auth_gateway import AuthGateway
+from gateways.game_gateway import GameGateway
+
 # Load .env file
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 

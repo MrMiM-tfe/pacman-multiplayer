@@ -2,7 +2,9 @@ from libs.base_gateway import BaseGateway
 from libs.decorators import on
 from game.room import Room
 from libs.response import Response
+from libs.decorators import register_gateway
 
+@register_gateway
 class GameGateway(BaseGateway):
 	@on("create_game")
 	def handle_create_game(self, sid: str, game_id: str):
