@@ -66,6 +66,40 @@ class LoginPage(PageBase):
             relative_rect=pygame.Rect((0, current_y), (panel_width, 30)),
             text="", manager=self.manager, container=self.panel)
 
+    def cycle_focus(self):
+        # Order of focusable UI elements
+        focusables = [self.username_input, self.password_input, self.login_register_button]
+        current_focus = self.manager.get_focus_set()
+
+        # Find the currently focused element
+        current_index = -1
+        for i, element in enumerate(focusables):
+            if element in current_focus:
+                current_index = i
+                break
+
+        # Unfocus current element
+        if 0 <= current_index < len(focusables):
+            focusables[current_index].unfocus()
+
+        # Calculate next focus index
+        next_index = (current_index + 1) % len(focusables)
+
+        # Focus next element
+        focusables[next_index].focus()
+
+
+    def trigger_auth(self):
+        username = self.username_input.get_text().strip()
+        password = self.password
+
+        if not username or not password:
+            self.login_result = "Username and password cannot be empty."
+            return
+
+        self.login_message.set_text("Processing...")
+        threading.Thread(target=self.authenticate, args=(username, password), daemon=True).start()
+
 
     def register_handlers(self):
         pass
@@ -77,6 +111,7 @@ class LoginPage(PageBase):
         if (data['status'] == 'success'):
             self.app.token = data['data']['token']
             self.login_result = f"Welcome {data['data']['username']}"
+            self.app.user = data['data']
             # time.sleep(1)
             self.switch_page("main_menu")
         else:
@@ -101,16 +136,17 @@ class LoginPage(PageBase):
                 self.password_input.set_text("*" * len(self.password))
 
 
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_TAB:
+                self.cycle_focus()
+            elif event.key == pygame.K_RETURN:
+                focused = self.manager.get_focus_set()
+                if self.username_input in focused or self.password_input in focused:
+                    self.trigger_auth()
+
+
         if event.type == pygame_gui.UI_BUTTON_PRESSED and event.ui_element == self.login_register_button:
-            username = self.username_input.get_text().strip()
-            password = self.password
-
-            if not username or not password:
-                self.login_result = "Username and password cannot be empty."
-                return
-
-            self.login_message.set_text("Processing...")
-            threading.Thread(target=self.authenticate, args=(username, password), daemon=True).start()
+            self.trigger_auth()
 
         self.manager.process_events(event)
     

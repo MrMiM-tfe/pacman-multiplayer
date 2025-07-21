@@ -43,6 +43,8 @@ class AuthGateway(BaseGateway):
                 "status": user.status,
                 "token": token 
             }
+
+            user.sid = sid
             
             self.connected_clients[sid] = user
             return Response.success(user_data)

@@ -31,7 +31,18 @@ class GameGateway(BaseGateway):
 			room.user2 = user
 			user.room_id = room.game_id
 			self.sio.enter_room(sid, room.game_id)
+			room.game_state = "ready to start"
 			self.sio.emit("user_joined", user.to_dict(), to=room.user1.sid)
+			return Response.success(room)
+		else:
+			return Response.error("Room not found")
+		
+	@on("start_game")
+	def handle_start_game(self, sid: str, game_id: str):
+		room = Room.rooms.get(game_id)
+		if room:
+			room.start_game()
+			self.sio.emit("game_started", to=room.game_id)
 			return Response.success(room)
 		else:
 			return Response.error("Room not found")
