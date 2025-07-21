@@ -11,3 +11,11 @@ class Room:
 
     def start_game(self):
         pass
+
+    def to_dict(self):
+        return {
+            "room_id": self.game_id,
+            "user1": self.user1.to_dict() if self.user1 else None,
+            "user2": self.user2.to_dict() if self.user2 else None,
+            "game_state": self.game_stated
+        }

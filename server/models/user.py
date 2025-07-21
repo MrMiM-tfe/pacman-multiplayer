@@ -12,3 +12,12 @@ class User(Base):
     status = Column(String, default="active")
 
     sid = None
+    room_id = None
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "score": self.score,
+            "status": self.status
+        }

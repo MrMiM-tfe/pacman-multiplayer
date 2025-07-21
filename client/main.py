@@ -1,74 +1,66 @@
 import pygame
 import pygame_gui
 import socketio
-import threading
+from pages.login_page import LoginPage
+from pages.main_menu_page import MainMenuPage
+from pages.room_page import RoomPage
 
-# Socket.IO client
 sio = socketio.Client()
 
-# Track login state
-login_result = None
+try:
+    sio.connect("http://127.0.0.1:5000")
+    print("🔌 Connected to server")
+except Exception as e:
+    print(f"❌ Could not connect to server: {e}")
 
-# Connect and emit login
-def attempt_login(username):
-    try:
-        sio.connect("http://localhost:5000")
-        sio.emit("login", {"username": username})
-    except Exception as e:
-        global login_result
-        login_result = f"❌ Connection failed: {e}"
+class MainApp:
+    def __init__(self):
+        pygame.init()
+        self.window_size = (400, 300)
+        self.window = pygame.display.set_mode(self.window_size)
+        self.manager = pygame_gui.UIManager(self.window_size)
+        self.clock = pygame.time.Clock()
+        self.pages = {}
+        self.token = None
+        self.current_room = None
+        self.current_page = None
 
-# Handle login events
-@sio.on("login_success")
-def on_login_success(data):
-    global login_result
-    login_result = f"✅ Welcome, {data['username']}"
+        self.initialize_pages("login")
 
-@sio.on("login_error")
-def on_login_error(data):
-    global login_result
-    login_result = f"🚫 {data['error']}"
+    def initialize_pages(self, page_name):
+        def switch_page(to_page):
+            self.initialize_pages(to_page)
+        
+        if (self.current_page and self.current_page.panel):
+            self.current_page.panel.hide()
 
-# --- Pygame GUI Setup ---
-pygame.init()
-pygame.display.set_caption("Pac-Man Login")
-window_size = (400, 300)
-window = pygame.display.set_mode(window_size)
-clock = pygame.time.Clock()
-manager = pygame_gui.UIManager(window_size)
+        self.pages = {
+            "login": LoginPage(self.window, self.manager, sio, self, switch_page),
+            "main_menu": MainMenuPage(self.window, self.manager, sio, self, switch_page),
+            "room": RoomPage(self.window, self.manager, sio, self, switch_page),
+            # "game": GamePage(...),
+        }
 
-username_input = pygame_gui.elements.UITextEntryLine(
-    relative_rect=pygame.Rect((100, 80), (200, 30)), manager=manager)
-username_input.set_text("")
+        if self.current_page and hasattr(self.current_page, "unlisten_for_events"):
+            self.current_page.unlisten_for_events()
+            
+        self.current_page = self.pages[page_name]
+        self.current_page.setup_ui()
 
-connect_button = pygame_gui.elements.UIButton(
-    relative_rect=pygame.Rect((150, 130), (100, 40)), text='Connect', manager=manager)
+    def run(self):
+        while self.current_page.running:
+            time_delta = self.clock.tick(60) / 1000.0
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.current_page.running = False
+                self.current_page.process_events(event)
 
-login_message = pygame_gui.elements.UILabel(
-    relative_rect=pygame.Rect((50, 200), (300, 30)), text="", manager=manager)
+            self.current_page.update(time_delta)
+            self.current_page.render()
 
-running = True
-while running:
-    time_delta = clock.tick(60) / 1000.0
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+        pygame.quit()
 
-        if event.type == pygame_gui.UI_BUTTON_PRESSED and event.ui_element == connect_button:
-            username = username_input.get_text().strip()
-            login_message.set_text("🔄 Connecting...")
-            threading.Thread(target=attempt_login, args=(username,), daemon=True).start()
-
-        manager.process_events(event)
-
-    manager.update(time_delta)
-
-    if login_result:
-        login_message.set_text(login_result)
-        login_result = None
-
-    window.fill((0, 0, 0))
-    manager.draw_ui(window)
-    pygame.display.update()
-
-pygame.quit()
+if __name__ == "__main__":
+    app = MainApp()
+    print(app.pages["room"].app == app)
+    app.run()
