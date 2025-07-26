@@ -31,5 +31,5 @@ MAP_LAYOUT = [
     "########################################################"
 ]
 
-PLAYER_1_POSITION = (17, 15)
-PLAYER_2_POSITION = (17, 37)
+PLAYER_1_POSITION = (15, 17)
+PLAYER_2_POSITION = (37, 17)

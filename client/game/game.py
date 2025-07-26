@@ -1,16 +1,19 @@
+import threading
+import time
 TILE_SIZE = 20
-SPEED = 2
+SPEED = 3
 
 class Game:
-    def __init__(self, game_id, p1_tile, p2_tile, map_layout: list[str]):
+    def __init__(self, game_id, p1_tile, p2_tile, map_layout: list[str], me):
         self.game_id = game_id
         self.TILE_SIZE = 20
         self.map = map_layout
-        self.me = '1'
-        self.speed = 1.0
+        self.me = me
+        self.speed = SPEED
+        self.is_running=True
 
-        self.p1 = [p1_tile[0] * self.TILE_SIZE, p1_tile[1] * self.TILE_SIZE]
-        self.p2 = [p2_tile[0] * self.TILE_SIZE, p2_tile[1] * self.TILE_SIZE]
+        self.p1 = [p1_tile[0] , p1_tile[1] ]
+        self.p2 = [p2_tile[0] , p2_tile[1] ]
         
         self.p1_dir = None
         self.p2_dir = None
@@ -40,7 +43,6 @@ class Game:
         return not self.is_wall_tile(next_tile_x, next_tile_y)
 
     def update_player(self, pos, direction, next_direction):
-        print(pos, direction, next_direction)
         if self.is_center_of_tile(pos):
             if next_direction and self.can_move(pos, next_direction):
                 direction = next_direction
@@ -65,6 +67,17 @@ class Game:
         self.p2, self.p2_dir, self.p2_next_dir = self.update_player(
             self.p2, self.p2_dir, self.p2_next_dir
         )
+
+    def run(self):
+        self.is_running = True
+        game_thread = threading.Thread(target=self.game_loop)
+        game_thread.daemon = True  
+        game_thread.start()
+
+    def game_loop(self):
+        while self.is_running:
+            self.move()
+            time.sleep(1 / 45)
 
     def change_dir(self, direction):
         if self.me == '1':

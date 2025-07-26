@@ -13,36 +13,56 @@ class GamePage(PageBase):
     def setup_ui(self, game_data):
         self.load_game(game_data)
 
-        # panel_width, panel_height = self.window.get_size()
-        # panel_x = (self.window.get_width() - panel_width) // 2
-        # panel_y = (self.window.get_height() - panel_height) // 2
+        new_width = len(self.game.map[0]) * self.tile_size
+        new_height = len(self.game.map) * self.tile_size
 
-        # self.panel = pygame_gui.elements.UIPanel(
-        #     relative_rect=pygame.Rect((panel_x, panel_y), (panel_width, panel_height)),
-        #     manager=self.manager
-        # )
+        print('ran 1')
 
-        # # You could add a "Back" button for development/testing
-        # self.back_button = pygame_gui.elements.UIButton(
-        #     relative_rect=pygame.Rect((10, 10), (100, 30)),
-        #     text="Back",
-        #     manager=self.manager,
-        #     container=self.panel
-        # )
+        self.app.recreate_window(new_width, new_height)
 
-        self.window_width = len(self.game.map[0]) * self.tile_size
-        self.window_height = len(self.game.map) * self.tile_size
+        print('ran 2')
 
-        # Resize the Pygame window
-        self.window = pygame.display.set_mode((self.window_width, self.window_height))
+        self.listen_for_events()
+
+    def listen_for_events(self):
+        # self.sio.on('user_left', self.on_user_left)
+        # self.sio.on('room_deleted', self.on_room_deleted)
+        self.sio.on('game_state', self.update_game_state)
+
+    def update_game_state(self, game_state):
+        self.game.game_id = game_state["game_id"]
+        self.game.map = game_state["map"]
+
+        self.game.p1 = game_state["p1"]["position"]
+        self.game.p2 = game_state["p2"]["position"]
+
+        self.game.p1_dir = game_state["p1"]["direction"]
+        self.game.p2_dir = game_state["p2"]["direction"]
+
+        self.game.p1_next_dir = game_state["p1"]["next_direction"]
+        self.game.p2_next_dir = game_state["p2"]["next_direction"]
+
 
     def load_game(self, data: dict):
+        me = self.app.get_user_number()
+        if (not me): me = '1'
+        print(data)
         self.game = Game(
             data["game_id"],
-            data["p1"],
-            data["p2"],
-            data["map"]
+            data["p1"]['position'],
+            data["p2"]['position'],
+            data["map"],
+            me
         )
+        # self.game.run()
+
+        print("ran")
+
+    def change_dir(self, direction):
+        me = self.app.get_user_number()
+        if (not me): return
+        self.sio.emit("change_dir", {"game_id": self.game.game_id, "direction": direction, "user": me})
+        self.game.change_dir(direction)
 
     def process_events(self, event):
         if event.type == pygame.USEREVENT:
@@ -53,13 +73,13 @@ class GamePage(PageBase):
         # handle move events
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
-                self.game.change_dir('up')
+                self.change_dir('up')
             elif event.key == pygame.K_DOWN:
-                self.game.change_dir('down')
+                self.change_dir('down')
             elif event.key == pygame.K_LEFT:
-                self.game.change_dir('left')
+                self.change_dir('left')
             elif event.key == pygame.K_RIGHT:
-                self.game.change_dir('right')
+                self.change_dir('right')
 
     
         self.manager.process_events(event)
@@ -71,7 +91,6 @@ class GamePage(PageBase):
         self.window.fill((0, 0, 0))
 
         if self.game:
-            self.game.move()
             self.draw_map()
             self.draw_players()
 
@@ -106,8 +125,8 @@ class GamePage(PageBase):
             self.window,
             (0, 0, 255),
             (
-                int(p1_x + self.tile_size // 2),  # Already in pixels
-                int(p1_y + self.tile_size // 2)
+                int(p1_x),  # Already in pixels
+                int(p1_y)
             ),
             self.tile_size // 2
         )
@@ -117,8 +136,8 @@ class GamePage(PageBase):
             self.window,
             (255, 0, 0),
             (
-                int(p2_x + self.tile_size // 2),  # Already in pixels
-                int(p2_y + self.tile_size // 2)
+                int(p2_x),  # Already in pixels
+                int(p2_y)
             ),
             self.tile_size // 2
         )

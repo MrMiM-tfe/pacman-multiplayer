@@ -41,11 +41,20 @@ class GameGateway(BaseGateway):
 	def handle_start_game(self, sid: str, game_id: str):
 		room = Room.rooms.get(game_id)
 		if room:
-			room.start_game()
+			game = room.start_game(self.sio)
 			self.sio.emit("game_started", to=room.game_id)
+			game.run()
 			return Response.success(room)
 		else:
 			return Response.error("Room not found")
+		
+	@on('change_dir')
+	def handle_change_dir(self, sid: str, data):
+		room, user = self.get_user_and_room(sid)
+		if (not room or not user): return
+		if (room.game_id != data['game_id']): return
+
+		room.game.change_dir(user, data['direction'])
 
 	@on("disconnect")
 	def disconnect(self, sid: str):
@@ -66,3 +75,14 @@ class GameGateway(BaseGateway):
 				self.sio.leave_room(sid, room.game_id)
 				self.sio.emit("user_left", to=room.user1.sid)
 				room.user2 = None
+
+	def get_user_and_room(self, sid):
+		user = self.get_user(sid)
+		if user:
+			room = Room.rooms.get(user.room_id)
+			if not room:
+				return
+			if room.user1.sid == sid:
+				return room, '1'
+			elif room.user2 and room.user2.sid == sid:
+				return room, '2'

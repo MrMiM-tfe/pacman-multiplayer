@@ -15,11 +15,11 @@ class Room:
     def is_ready(self):
         return self.user1 is not None and self.user2 is not None
 
-    def start_game(self):
+    def start_game(self, sio):
         if not self.is_ready():
             raise Exception("Both players are not connected.")
         
-        self.game = Game(self.game_id, self.user1, self.user2)
+        self.game = Game(self.game_id, self.user1, self.user2, sio)
         self.game_state = 'running'
         return self.game
 
