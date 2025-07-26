@@ -42,6 +42,11 @@ class GamePage(PageBase):
         self.game.p1_next_dir = game_state["p1"]["next_direction"]
         self.game.p2_next_dir = game_state["p2"]["next_direction"]
 
+        self.game.p1_type = game_state["p1"]["type"]
+        self.game.p2_type = game_state["p2"]["type"]
+
+        self.game.ghosts = [ghost["position"] for ghost in game_state.get("ghosts", [])]
+
 
     def load_game(self, data: dict):
         me = self.app.get_user_number()
@@ -54,15 +59,11 @@ class GamePage(PageBase):
             data["map"],
             me
         )
-        # self.game.run()
-
-        print("ran")
 
     def change_dir(self, direction):
         me = self.app.get_user_number()
         if (not me): return
         self.sio.emit("change_dir", {"game_id": self.game.game_id, "direction": direction, "user": me})
-        self.game.change_dir(direction)
 
     def process_events(self, event):
         if event.type == pygame.USEREVENT:
@@ -100,9 +101,6 @@ class GamePage(PageBase):
     def draw_map(self):
         colors = {
             "#": (200, 200, 200),  # Wall
-            ".": (50, 50, 50),     # Dot path
-            "O": (255, 255, 0),    # Power pellet
-            " ": (0, 0, 0)         # Empty
         }
 
         for y, row in enumerate(self.game.map):
@@ -113,7 +111,15 @@ class GamePage(PageBase):
                     self.tile_size,
                     self.tile_size
                 )
+                center = (
+                    x * self.tile_size + self.tile_size // 2,
+                    y * self.tile_size + self.tile_size // 2
+                )
                 pygame.draw.rect(self.window, colors.get(tile, (0, 0, 0)), rect)
+                if (tile == '.'):
+                    pygame.draw.circle(self.window, (50, 50, 50), center, 2)
+                if (tile == 'O'):
+                    pygame.draw.circle(self.window, (255, 255, 0), center, 4)
 
     def draw_players(self):
         # Get the exact pixel positions
@@ -123,10 +129,10 @@ class GamePage(PageBase):
         # Draw player 1 (blue)
         pygame.draw.circle(
             self.window,
-            (0, 0, 255),
+            (0, 0, 255) if self.game.p1_type == 'player' else (0, 255, 255),
             (
-                int(p1_x),  # Already in pixels
-                int(p1_y)
+                int(p1_x + self.tile_size // 2),
+                int(p1_y + self.tile_size // 2)
             ),
             self.tile_size // 2
         )
@@ -134,12 +140,17 @@ class GamePage(PageBase):
         # Draw player 2 (red)
         pygame.draw.circle(
             self.window,
-            (255, 0, 0),
+            (255, 0, 0) if self.game.p2_type == 'player' else (0, 255, 255),
             (
-                int(p2_x),  # Already in pixels
-                int(p2_y)
+                int(p2_x + self.tile_size // 2), 
+                int(p2_y + self.tile_size // 2)
             ),
             self.tile_size // 2
         )
+
+        for ghost in self.game.ghosts:
+            x, y = ghost
+            pygame.draw.rect(self.window, (255, 0, 0), (x, y, self.tile_size, self.tile_size))
+
 
 

@@ -42,8 +42,8 @@ class GameGateway(BaseGateway):
 		room = Room.rooms.get(game_id)
 		if room:
 			game = room.start_game(self.sio)
-			self.sio.emit("game_started", to=room.game_id)
 			game.run()
+			self.sio.emit("game_started", Response.success(room) ,to=room.user2.sid)
 			return Response.success(room)
 		else:
 			return Response.error("Room not found")

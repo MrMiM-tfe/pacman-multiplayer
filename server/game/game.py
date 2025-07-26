@@ -1,8 +1,10 @@
 import threading
+import random
 import time
 from game.map import MAP_LAYOUT, PLAYER_1_POSITION, PLAYER_2_POSITION
 from game.player import Player
 from models import User
+from game.ghost import Ghost
 
 SPEED = 2 
 
@@ -18,6 +20,13 @@ class Game:
         self.p1 = Player(user1, self._to_pixel_position(PLAYER_1_POSITION))
         self.p2 = Player(user2, self._to_pixel_position(PLAYER_2_POSITION))
 
+        self.ghosts = [
+            Ghost(self._to_pixel_position((1, 11)), region='left'),
+            Ghost(self._to_pixel_position((3, 13)), region='left'),
+            Ghost(self._to_pixel_position((38, 11)), region='right'),
+            Ghost(self._to_pixel_position((40, 13)), region='right'),
+        ]
+
     def _to_pixel_position(self, tile_pos: tuple[int, int]) -> list[int]:
         x, y = tile_pos
         return [
@@ -31,6 +40,7 @@ class Game:
             "p1": self.p1.to_dict(),
             "p2": self.p2.to_dict(),
             "map": self.map,
+            "ghosts": [ghost.to_dict() for ghost in self.ghosts]
         }
 
     def is_wall_tile(self, tile_x, tile_y):
@@ -89,13 +99,79 @@ class Game:
             self.p2.position, self.p2.direction, self.p2.next_direction
         )
 
+        self.p1.update_type('1')
+        self.p2.update_type('2')
+        
+        if self.check_collision(self.p1.position, self.p2.position):
+            if self.p1.type == 'ghost' and self.p2.type == 'player':
+                self.kill_player(self.p2, self.p1) 
+            elif self.p2.type == 'ghost' and self.p1.type == 'player':
+                self.kill_player(self.p1, self.p2)
+
+    def kill_player(self, p: Player, winner_p: Player):
+        p.is_dead = True
+        p.is_winner = False
+
+        winner_p.is_winner = True
+        self.is_running = False
+
+        self.broadcast_game_state()
+        self.sio.emit('end_game', {'winner': winner_p.user.to_dict()}, to=self.game_id)
+
     def change_dir(self, player, direction):
         if player == '1':
             self.p1.next_direction = direction
         else:
             self.p2.next_direction = direction
 
-        self.broadcast_game_state()
+    def move_ghosts(self):
+        for ghost in self.ghosts:
+            if self.is_center_of_tile(ghost.position):
+                possible_directions = ['up', 'down', 'left', 'right']
+                random.shuffle(possible_directions)
+
+                # Constrain direction based on region
+                ghost_tile_x, _ = self.get_tile_coords(ghost.position)
+                if ghost.region == 'left' and ghost_tile_x > len(self.map[0]) // 2:
+                    continue  # skip moving out of left half
+                elif ghost.region == 'right' and ghost_tile_x < len(self.map[0]) // 2:
+                    continue  # skip moving out of right half
+
+                for direction in possible_directions:
+                    if self.can_move(ghost.position, direction):
+                        ghost.direction = direction
+                        break  # pick first valid random direction
+
+            # Move ghost
+            dx, dy = 0, 0
+            if ghost.direction == 'up': dy = -SPEED
+            elif ghost.direction == 'down': dy = SPEED
+            elif ghost.direction == 'left': dx = -SPEED
+            elif ghost.direction == 'right': dx = SPEED
+
+            ghost.position[0] += dx
+            ghost.position[1] += dy
+
+            if self.check_collision(self.p1.position, ghost.position) and self.p1.type == 'player':
+                self.re_spawn('1')
+
+            if self.check_collision(self.p2.position, ghost.position) and self.p2.type == 'player':
+                self.re_spawn('2')
+
+
+    def check_collision(self, player_pos, ghost_pos):
+        dx = player_pos[0] - ghost_pos[0]
+        dy = player_pos[1] - ghost_pos[1]
+        distance_squared = dx * dx + dy * dy
+        return distance_squared <= self.tile_size * self.tile_size
+
+
+    
+    def re_spawn(self, player_number):
+        if player_number == '1':
+            self.p1.position = self._to_pixel_position(PLAYER_1_POSITION)  # Reset to start
+        elif player_number == '2':
+            self.p2.position = self._to_pixel_position(PLAYER_2_POSITION)  # Reset to start
 
     def run(self):
         self.is_running = True
@@ -103,21 +179,14 @@ class Game:
         game_thread.daemon = True  
         game_thread.start()
 
-        # broadcast_thread = threading.Thread(target=self.broadcast_game_state_interval)
-        # broadcast_thread.daemon = True
-        # broadcast_thread.start()
-
     def game_loop(self):
         while self.is_running:
             self.move()
-            self.sio.emit("game_state", self.get_state(), to=self.game_id)
+            self.move_ghosts()
+            self.broadcast_game_state()
             time.sleep(1 / 60)  # 60 FPS
 
-    def broadcast_game_state_interval(self):
-        while self.is_running:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
-            time.sleep(1 / 60)
-
     def broadcast_game_state(self):
-        # self.sio.emit("game_state", self.get_state(), to=self.game_id)
-        pass
+        self.sio.emit("game_state", self.get_state(), to=self.game_id)
+
 

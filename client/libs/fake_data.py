@@ -37,7 +37,7 @@ PLAYER_2_POSITION = (37, 17)
 
 game_fake_data = {
     "map": MAP_LAYOUT,
-    "p1": PLAYER_1_POSITION,
-    "p2": PLAYER_2_POSITION,
+    "p1": { 'position': PLAYER_1_POSITION },
+    "p2": { 'position': PLAYER_2_POSITION },
     "game_id": 123543
 }

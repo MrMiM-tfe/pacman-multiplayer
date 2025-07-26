@@ -98,6 +98,7 @@ class RoomPage(PageBase):
         self.sio.on('user_joined', self.on_user_joined)
         self.sio.on('user_left', self.on_user_left)
         self.sio.on('room_deleted', self.on_room_deleted)
+        self.sio.on('game_started', self.on_start_game_response)
 
     @is_active_page
     def on_user_joined(self, data):
