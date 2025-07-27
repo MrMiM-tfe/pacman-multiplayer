@@ -5,6 +5,7 @@ from game.map import MAP_LAYOUT, PLAYER_1_POSITION, PLAYER_2_POSITION
 from game.player import Player
 from models import User
 from game.ghost import Ghost
+from db.database import SessionLocal
 
 SPEED = 2 
 
@@ -116,6 +117,15 @@ class Game:
         self.is_running = False
 
         self.broadcast_game_state()
+        db = SessionLocal()
+        user = db.query(User).filter(User.id == winner_p.user.id).first()
+
+        user.score += 1
+        db.commit()
+        db.refresh(user)
+
+        winner_p.user.score += 1
+
         self.sio.emit('end_game', {'winner': winner_p.user.to_dict()}, to=self.game_id)
 
     def change_dir(self, player, direction):

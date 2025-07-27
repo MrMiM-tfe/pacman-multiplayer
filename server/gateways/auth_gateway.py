@@ -45,7 +45,7 @@ class AuthGateway(BaseGateway):
             }
 
             user.sid = sid
-            
+
             self.connected_clients[sid] = user
             return Response.success(user_data)
         else:

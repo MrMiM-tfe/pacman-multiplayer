@@ -9,6 +9,7 @@ from pages.room_page import RoomPage
 from pages.game_page import GamePage
 import inspect
 from libs.fake_data import game_fake_data
+from pages.winner_page import WinnerPage
 
 sio = socketio.Client()
 
@@ -58,6 +59,7 @@ class MainApp:
             "main_menu": MainMenuPage(self.window, self.manager, sio, self, switch_page),
             "room": RoomPage(self.window, self.manager, sio, self, switch_page),
             "game": GamePage(self.window, self.manager, sio, self, switch_page),
+            "winner": WinnerPage(self.window, self.manager, sio, self, switch_page)
         }
 
         self.current_page = self.pages[page_name]

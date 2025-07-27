@@ -2,6 +2,7 @@ import pygame
 import pygame_gui
 from pages.page_base import PageBase
 from game.game import Game
+from libs.decorators import is_active_page
 
 
 class GamePage(PageBase):
@@ -9,6 +10,7 @@ class GamePage(PageBase):
         super().__init__(window, manager, sio, app, switch_page_callback)
         self.game = None
         self.tile_size = 20  # Adjust tile size as needed
+        self.panel = None
 
     def setup_ui(self, game_data):
         self.load_game(game_data)
@@ -16,11 +18,7 @@ class GamePage(PageBase):
         new_width = len(self.game.map[0]) * self.tile_size
         new_height = len(self.game.map) * self.tile_size
 
-        print('ran 1')
-
         self.app.recreate_window(new_width, new_height)
-
-        print('ran 2')
 
         self.listen_for_events()
 
@@ -28,7 +26,13 @@ class GamePage(PageBase):
         # self.sio.on('user_left', self.on_user_left)
         # self.sio.on('room_deleted', self.on_room_deleted)
         self.sio.on('game_state', self.update_game_state)
+        self.sio.on('end_game', self.end_game)
 
+    @is_active_page
+    def end_game(self, data):
+        self.switch_page('winner', data)
+
+    @is_active_page
     def update_game_state(self, game_state):
         self.game.game_id = game_state["game_id"]
         self.game.map = game_state["map"]
