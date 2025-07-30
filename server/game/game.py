@@ -6,6 +6,7 @@ from game.player import Player
 from models import User
 from game.ghost import Ghost
 from db.database import SessionLocal
+import copy
 
 SPEED = 2 
 
@@ -13,7 +14,7 @@ class Game:
     def __init__(self, game_id, user1: User, user2: User, sio):
         self.game_id = game_id
         self.tile_size = 20
-        self.map = MAP_LAYOUT
+        self.map = copy.deepcopy(MAP_LAYOUT)
         self.is_running = False
         self.sio = sio
 
@@ -22,10 +23,13 @@ class Game:
         self.p2 = Player(user2, self._to_pixel_position(PLAYER_2_POSITION))
 
         self.ghosts = [
-            Ghost(self._to_pixel_position((1, 11)), region='left'),
-            Ghost(self._to_pixel_position((3, 13)), region='left'),
-            Ghost(self._to_pixel_position((38, 11)), region='right'),
-            Ghost(self._to_pixel_position((40, 13)), region='right'),
+            # Left side ghosts
+            Ghost(self._to_pixel_position((1, 14)), region='left'),
+            Ghost(self._to_pixel_position((3, 14)), region='left'),
+
+            # Right side ghosts
+            Ghost(self._to_pixel_position((48, 14)), region='right'),
+            Ghost(self._to_pixel_position((46, 11)), region='right'),
         ]
 
     def _to_pixel_position(self, tile_pos: tuple[int, int]) -> list[int]:
@@ -102,12 +106,59 @@ class Game:
 
         self.p1.update_type('1')
         self.p2.update_type('2')
+
+        self.consume_point_if_available(self.p1)
+        self.consume_point_if_available(self.p2)
+
+        self.check_win_by_half()
         
         if self.check_collision(self.p1.position, self.p2.position):
             if self.p1.type == 'ghost' and self.p2.type == 'player':
                 self.kill_player(self.p2, self.p1) 
             elif self.p2.type == 'ghost' and self.p1.type == 'player':
                 self.kill_player(self.p1, self.p2)
+
+    def consume_point_if_available(self, player: Player):
+        tile_x, tile_y = self.get_tile_coords(player.position)
+        if player.type == 'ghost': return
+
+        if self.map[tile_y][tile_x] == '.':
+            self.map[tile_y] = self.map[tile_y][:tile_x] + ' ' + self.map[tile_y][tile_x + 1:]
+
+    def check_win_by_half(self):
+        width = len(self.map[0])
+        left_has_dot = False
+        right_has_dot = False
+
+        for row in self.map:
+            if '.' in row[:width // 2]:
+                left_has_dot = True
+            if '.' in row[width // 2:]:
+                right_has_dot = True
+
+        winner = None
+        if not left_has_dot:
+            winner = self.p1
+        if not right_has_dot:
+            winner = self.p2
+
+        if winner: 
+            winner.is_winner = True
+            self.is_running = False
+
+            self.broadcast_game_state()
+
+            db = SessionLocal()
+            user = db.query(User).filter(User.id == winner.user.id).first()
+
+            user.score += 1
+            db.commit()
+            db.refresh(user)
+
+            winner.user.score += 1
+
+            self.sio.emit('end_game', {'winner': winner.user.to_dict()}, to=self.game_id)
+
 
     def kill_player(self, p: Player, winner_p: Player):
         p.is_dead = True
@@ -135,39 +186,48 @@ class Game:
             self.p2.next_direction = direction
 
     def move_ghosts(self):
+        half = len(self.map[0]) // 2
+        opposites = {'up':'down', 'down':'up', 'left':'right', 'right':'left'}
+
         for ghost in self.ghosts:
+            # 1) At tile center, pick a random valid next_direction
             if self.is_center_of_tile(ghost.position):
-                possible_directions = ['up', 'down', 'left', 'right']
-                random.shuffle(possible_directions)
+                choices = ['up','down','left','right']
+                # exclude exact reverse of current direction
+                if ghost.direction in opposites:
+                    choices.remove(opposites[ghost.direction])
+                random.shuffle(choices)
 
-                # Constrain direction based on region
-                ghost_tile_x, _ = self.get_tile_coords(ghost.position)
-                if ghost.region == 'left' and ghost_tile_x > len(self.map[0]) // 2:
-                    continue  # skip moving out of left half
-                elif ghost.region == 'right' and ghost_tile_x < len(self.map[0]) // 2:
-                    continue  # skip moving out of right half
+                for d in choices:
+                    # must be able to move and stay in its region
+                    if not self.can_move(ghost.position, d):
+                        continue
+                    # check region constraint
+                    tx, _ = self.get_tile_coords([
+                        ghost.position[0] + (d == 'right') * self.tile_size - (d == 'left') * self.tile_size,
+                        ghost.position[1] + (d == 'down') * self.tile_size - (d == 'up') * self.tile_size
+                    ])
+                    if ghost.region == 'left' and tx > half: continue
+                    if ghost.region == 'right' and tx < half: continue
 
-                for direction in possible_directions:
-                    if self.can_move(ghost.position, direction):
-                        ghost.direction = direction
-                        break  # pick first valid random direction
+                    ghost.next_direction = d
+                    break
 
-            # Move ghost
-            dx, dy = 0, 0
-            if ghost.direction == 'up': dy = -SPEED
-            elif ghost.direction == 'down': dy = SPEED
-            elif ghost.direction == 'left': dx = -SPEED
-            elif ghost.direction == 'right': dx = SPEED
+            # 2) Use your existing player‐movement logic to actually move the ghost
+            self.update_ghost(ghost)
 
-            ghost.position[0] += dx
-            ghost.position[1] += dy
-
+            # 3) Collision with players
             if self.check_collision(self.p1.position, ghost.position) and self.p1.type == 'player':
                 self.re_spawn('1')
-
             if self.check_collision(self.p2.position, ghost.position) and self.p2.type == 'player':
                 self.re_spawn('2')
 
+
+
+    def update_ghost(self, ghost):
+        ghost.position, ghost.direction, ghost.next_direction = self.update_player(
+            ghost.position, ghost.direction, ghost.next_direction
+        )
 
     def check_collision(self, player_pos, ghost_pos):
         dx = player_pos[0] - ghost_pos[0]
